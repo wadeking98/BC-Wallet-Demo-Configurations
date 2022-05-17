@@ -1,0 +1,318 @@
+---
+kind: Template
+apiVersion: v1
+metadata:
+  name: ${NAME}${SUFFIX}
+objects:2
+  - kind: NetworkPolicy
+    apiVersion: networking.k8s.io/v1
+    metadata:
+      name: ${NAME}-allow-ingress
+      labels:
+        name: ${NAME}-allow-ingress
+        app: ${APP_NAME}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    spec:
+      description: |
+        Allow traffic from routes into the ${ROLE} container(s).
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: ingress
+      podSelector:
+        matchLabels:
+          role: ${ROLE}
+          app: ${APP_NAME}
+          env: ${TAG_NAME}
+      policyTypes:
+        - Ingress
+  - kind: NetworkPolicy
+    apiVersion: networking.k8s.io/v1
+    metadata:
+      name: ${NAME}
+      labels:
+        name: ${NAME}
+        app: ${APP_NAME}
+        env: ${TAG_NAME}
+    spec:
+      description: Allow the service to access the agent.
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  role: ${SERVICE_ROLE}
+                  app: ${APP_NAME}
+                  env: ${TAG_NAME}
+              namespaceSelector:
+                matchLabels:
+                  name: ${NAMESPACE_NAME}
+                  environment: ${TAG_NAME}
+          ports:
+            - protocol: TCP
+              port: ${{SERVER_PORT}}
+      podSelector:
+        matchLabels:
+          role: ${ROLE}
+          app: ${APP_NAME}
+          env: ${TAG_NAME}
+
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        app: ${APP_NAME}${SUFFIX}
+        name: ${NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    spec:
+      ports:
+        - name: ${NAME}${SUFFIX}-admin
+          port: ${{SERVER_PORT}}
+          protocol: TCP
+          targetPort: ${{SERVER_PORT}}
+        - name: ${NAME}${SUFFIX}-public
+          port: ${{AGENT_PORT}}
+          protocol: TCP
+          targetPort: ${{AGENT_PORT}}
+      selector:
+        name: ${NAME}${SUFFIX}
+
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        app: ${APP_NAME}${SUFFIX}
+        name: ${NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    spec:
+      host: ${APPLICATION_DOMAIN}
+      port:
+        targetPort: ${NAME}${SUFFIX}-public
+      tls:
+        insecureEdgeTerminationPolicy: Redirect
+        termination: edge
+      to:
+        kind: Service
+        name: ${NAME}${SUFFIX}
+        weight: 100
+
+  - kind: Secret
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        app: ${APP_NAME}${SUFFIX}
+        name: ${NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    stringData:
+      seed: ${WALLET_SEED}
+      key: ${WALLET_KEY}
+    type: Opaque
+
+  - kind: DeploymentConfig
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        app: ${APP_NAME}${SUFFIX}
+        name: ${NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    spec:
+      replicas: 1
+      selector:
+        name: ${NAME}${SUFFIX}
+      strategy:
+        type: Rolling
+      template:
+        metadata:
+          name: ${NAME}${SUFFIX}
+          labels:
+            app: ${APP_NAME}${SUFFIX}
+            name: ${NAME}${SUFFIX}
+            app-group: ${APP_GROUP}
+            role: ${ROLE}
+            env: ${TAG_NAME}
+        spec:
+          containers:
+            - name: ${NAME}${SUFFIX}
+              env:
+                - name: AGENT_WALLET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}${SUFFIX}
+                      key: key
+                - name: AGENT_PUBLIC_DID_SEED
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}${SUFFIX}
+                      key: seed
+                # - name: ACAPY_ENDPOINT
+                #   value: ${AGENT_ENDPOINT}
+              image: " "
+              ports:
+                - containerPort: ${{SERVER_PORT}}
+                  protocol: TCP
+                - containerPort: ${{AGENT_PORT}}
+                  protocol: TCP
+              readinessProbe:
+                timeoutSeconds: 30
+                initialDelaySeconds: 3
+                httpGet:
+                  path: "/"
+                  port: ${{SERVER_PORT}}
+              livenessProbe:
+                timeoutSeconds: 30
+                initialDelaySeconds: 300
+                httpGet:
+                  path: "/"
+                  port: ${{SERVER_PORT}}
+              imagePullPolicy: IfNotPresent
+              resources:
+                limits:
+                  cpu: ${CPU_LIMIT}
+                  memory: ${MEMORY_LIMIT}
+                requests:
+                  cpu: ${CPU_REQUEST}
+                  memory: ${MEMORY_REQUEST}
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+            - name: ${NAME}${SUFFIX}-data
+              persistentVolumeClaim:
+                claimName: ${NAME}${SUFFIX}
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${NAME}${SUFFIX}
+            from:
+              kind: ImageStreamTag
+              name: ${NAME}:${TAG_NAME}
+              namespace: ${IMAGE_NAMESPACE}
+
+parameters:
+  - name: NAME
+    displayName: Name
+    description: The name assigned to all the objects defined in this template.
+    required: true
+    value: bc-wallet-demo-server
+  - name: APP_GROUP
+    displayName: App Group
+    description: The name assigned to all of the deployments in this project.
+    required: true
+    value: bc-wallet-demo
+  - name: NAMESPACE_NAME
+    displayName: NameSpace name
+    description: name of the project namespace
+    required: true
+    value: a99fd4
+  - name: APP_NAME
+    displayName: App Name
+    description: Used to group components together in the OpenShift console.
+    required: true
+    value: bc-wallet-demo
+  - name: SUFFIX
+    displayName: Suffix
+    description: A name suffix used for all objects
+    required: false
+    value: ''
+  - name: ROLE
+    displayName: Role
+    description: The role of this service within the application - used for Network Policies
+    required: true
+    value: server
+  - name: SERVICE_ROLE
+    displayName: Service Role
+    description: The role of the email verification service within the application - used for Network Policies
+    required: true
+    value: web
+  - name: APPLICATION_DOMAIN
+    displayName: Application Hostname
+    description: The exposed hostname that will route to the service, if left blank a value will be defaulted.
+    required: false
+    value: bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
+  - name: IMAGE_NAMESPACE
+    displayName: Namespace containing application images.
+    required: true
+    value: a99fd4-tools
+  - name: AGENT_READ_ONLY_LEDGER
+    displayName: Set read only ledger flag.
+    description: Enable/Disable the read only ledger flag.  Controls the inclusion/exclusion of the agent '--read-only-ledger' startup parameter.  Defaults to disabled.
+    required: true
+    value: "false"
+  - name: TAG_NAME
+    displayName: Environment TAG name
+    description: The TAG name for this environment, e.g., dev, test, prod.
+    required: true
+    value: dev
+  - name: SERVER_PORT
+    displayName: Admin Port
+    description: The admin port on which the service will listen.
+    required: true
+    value: "5000"
+  - name: AGENT_PORT
+    displayName: Agent Port
+    description: The agent port on which the service will listen.
+    required: true
+    value: "5001"
+  - name: WALLET_KEY
+    displayName: Wallet Encryption Key
+    description: The encryption key to be used for the wallets.  Needs to be base64 encoded.
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9]{32}"
+  - name: WALLET_SEED
+    displayName: Indy Wallet Seed
+    description: The Seed used for the indy wallet.  Needs to be base64 encoded.
+    required: true
+    generate: expression
+    from: "[a-zA-Z0-9]{32}"
+  - name: AGENT_ENDPOINT
+    displayName: Site URL
+    description: The URL for the site
+    required: true
+    value: https://bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
+  - name: DISPLAY_LABEL
+    displayName: Display Label
+    description: Display label
+    required: true
+    value: Email Verification Service
+  - name: CPU_REQUEST
+    displayName: Resources CPU Request
+    description: The resources CPU request (in cores) for this build.
+    required: true
+    value: 10m
+  - name: CPU_LIMIT
+    displayName: Resources CPU Limit
+    description: The resources CPU limit (in cores) for this build.
+    required: true
+    value: 250m
+  - name: MEMORY_REQUEST
+    displayName: Resources Memory Request
+    description: The resources Memory request (in Mi, Gi, etc) for this build.
+    required: true
+    value: 10Mi
+  - name: MEMORY_LIMIT
+    displayName: Resources Memory Limit
+    description: The resources Memory limit (in Mi, Gi, etc) for this build.
+    required: true
+    value: 1Gi
