@@ -32,19 +32,19 @@ objects:
   - kind: NetworkPolicy
     apiVersion: networking.k8s.io/v1
     metadata:
-      name: ${NAME}
+      name: ${NAME}${SUFFIX}
       labels:
-        name: ${NAME}
-        app: ${APP_NAME}
+        name: ${NAME}${SUFFIX}
+        app: ${APP_NAME}${SUFFIX}
         env: ${TAG_NAME}
     spec:
-      description: Allow the service to access the agent.
+      description: Allow server ports to be accessed by caddy proxy.
       ingress:
         - from:
             - podSelector:
                 matchLabels:
-                  role: ${SERVICE_ROLE}
-                  app: ${APP_NAME}
+                  role: ${PROXY_ROLE}
+                  app: ${APP_NAME}${SUFFIX}
                   env: ${TAG_NAME}
               namespaceSelector:
                 matchLabels:
@@ -56,9 +56,8 @@ objects:
       podSelector:
         matchLabels:
           role: ${ROLE}
-          app: ${APP_NAME}
+          app: ${APP_NAME}${SUFFIX}
           env: ${TAG_NAME}
-
   - kind: Service
     apiVersion: v1
     metadata:
@@ -104,28 +103,6 @@ objects:
         name: ${NAME}${SUFFIX}
         weight: 100
   
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: ${NAME}${SUFFIX}
-      labels:
-        app: ${APP_NAME}${SUFFIX}
-        name: ${NAME}${SUFFIX}
-        app-group: ${APP_GROUP}
-        role: ${ROLE}
-        env: ${TAG_NAME}
-    spec:
-      host: ${APPLICATION_DOMAIN}
-      port:
-        targetPort: ${NAME}${SUFFIX}-admin
-      tls:
-        insecureEdgeTerminationPolicy: Redirect
-        termination: edge
-      to:
-        kind: Service
-        name: ${NAME}${SUFFIX}
-        weight: 100
-
   - kind: Secret
     apiVersion: v1
     metadata:
@@ -260,25 +237,15 @@ parameters:
     description: The role of this service within the application - used for Network Policies
     required: true
     value: server
-  - name: SERVICE_ROLE
-    displayName: Service Role
-    description: The role of the email verification service within the application - used for Network Policies
+  - name: PROXY_ROLE
+    displayName: proxy role
+    description: The role of the caddy proxy service
     required: true
-    value: web
-  - name: APPLICATION_DOMAIN
-    displayName: Application Hostname
-    description: The exposed hostname that will route to the service, if left blank a value will be defaulted.
-    required: false
-    value: bc-wallet-demo-agent-admin-dev.apps.silver.devops.gov.bc.ca
+    value: proxy
   - name: IMAGE_NAMESPACE
     displayName: Namespace containing application images.
     required: true
     value: a99fd4-tools
-  - name: AGENT_READ_ONLY_LEDGER
-    displayName: Set read only ledger flag.
-    description: Enable/Disable the read only ledger flag.  Controls the inclusion/exclusion of the agent '--read-only-ledger' startup parameter.  Defaults to disabled.
-    required: true
-    value: "false"
   - name: TAG_NAME
     displayName: Environment TAG name
     description: The TAG name for this environment, e.g., dev, test, prod.
@@ -316,11 +283,6 @@ parameters:
     description: The URL for the site
     required: true
     value: bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
-  - name: DISPLAY_LABEL
-    displayName: Display Label
-    description: Display label
-    required: true
-    value: Email Verification Service
   - name: CPU_REQUEST
     displayName: Resources CPU Request
     description: The resources CPU request (in cores) for this build.
