@@ -9,7 +9,7 @@ def WAIT_TIMEOUT = 40
 
 // Assumes Builds, Images, and Deployments all have the same name(s)
 // Components will be deployed in the order they are listed.
-def COMPONENTS = ['bc-wallet-demo-web', 'bc-wallet-demo-server']
+def COMPONENTS = ['bc-wallet-demo-web', 'bc-wallet-demo-server', 'bc-wallet-demo-proxy']
 
 // Edit your environment TAG names below
 def TAG_NAMES = ['dev']

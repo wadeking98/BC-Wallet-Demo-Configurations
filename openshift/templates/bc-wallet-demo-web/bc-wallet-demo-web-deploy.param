@@ -3,19 +3,19 @@
 # Component: .
 # Template File: ../openshift/templates/bc-wallet-demo-server/bc-wallet-demo-server-deploy.yaml
 #=========================================================
-# NAME=bc-wallet-demo-web
-# ROLE=web
-# NAMESPACE=a99fd4
-# SUFFIX=
-# APP_NAME=bc-wallet-demo
-# APP_GROUP=bc-wallet-demo
-# IMAGE_NAMESPACE=a99fd4-tools
-# WEB_PORT=3000
+NAME=bc-wallet-demo-web
+ROLE=web
+NAMESPACE=a99fd4
+SUFFIX=
+APP_NAME=bc-wallet-demo
+APP_GROUP=bc-wallet-demo
+IMAGE_NAMESPACE=a99fd4-tools
+WEB_PORT=3000
 APPLICATION_DOMAIN=bc-wallet-demo-dev.apps.silver.devops.gov.bc.ca
 AGENT_ENDPOINT=https://bc-wallet-demo-agent-admin-dev.apps.silver.devops.gov.bc.ca
-# ROUTE_TIMEOUT=120s
+ROUTE_TIMEOUT=120s
 TAG_NAME=dev
-# CPU_REQUEST=250m
-# CPU_LIMIT=2m
-# MEMORY_REQUEST=1Gi
-# MEMORY_LIMIT=3Gi
+CPU_REQUEST=250m
+CPU_LIMIT=2m
+MEMORY_REQUEST=1Gi
+MEMORY_LIMIT=3Gi
