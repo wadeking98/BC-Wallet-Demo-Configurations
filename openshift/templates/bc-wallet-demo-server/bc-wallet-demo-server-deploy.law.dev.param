@@ -6,12 +6,12 @@
 # NAME=bc-wallet-demo-server
 # ROLE=server
 # NAMESPACE_name=a99fd4
-# SUFFIX=
+SUFFIX=-law
 # APP_NAME=bc-wallet-demo
 # APP_GROUP=bc-wallet-demo
 # IMAGE_NAMESPACE=a99fd4-tools
-AGENT_ENDPOINT=https://bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
-AGENT_ENDPOINT_BASE=bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
+AGENT_ENDPOINT=https://bc-wallet-demo-agent-law-dev.apps.silver.devops.gov.bc.ca
+AGENT_ENDPOINT_BASE=bc-wallet-demo-agent-law-dev.apps.silver.devops.gov.bc.ca
 # SERVER_PORT=5000
 # AGENT_PORT=5001
 TAG_NAME=dev

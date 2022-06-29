@@ -7,15 +7,15 @@ objects:
   - kind: ImageStream
     apiVersion: v1
     metadata:
-      name: ${NAME}
+      name: ${NAME}${SUFFIX}
       labels:
-        app: ${APP_NAME}
+        app: ${APP_NAME}${SUFFIX}
   - kind: BuildConfig
     apiVersion: v1
     metadata:
-      name: ${NAME}
+      name: ${NAME}${SUFFIX}
       labels:
-        app: ${APP_NAME}
+        app: ${APP_NAME}${SUFFIX}
     spec:
       triggers:
         - type: ImageChange
@@ -37,7 +37,7 @@ objects:
       output:
         to:
           kind: ImageStreamTag
-          name: ${NAME}:${OUTPUT_IMAGE_TAG}
+          name: ${NAME}${SUFFIX}:${OUTPUT_IMAGE_TAG}
       resources:
         limits:
           cpu: ${CPU_LIMIT}
@@ -48,6 +48,11 @@ parameters:
     description: The name assigned to all of the resources defined in this template.
     required: true
     value: bc-wallet-demo-server
+  - name: SUFFIX
+    displayName: suffix
+    description: use to create different instances of components
+    required: true
+    value: 
   - name: APP_NAME
     displayName: App Name
     description: Used to group components together.

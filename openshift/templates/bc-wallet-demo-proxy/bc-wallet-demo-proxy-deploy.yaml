@@ -121,7 +121,7 @@ objects:
           volumes:
             - name: ${NAME}${SUFFIX}-config-volume
               configMap:
-                name: ${CONFIG_MAP_NAME}${SUFFIX}
+                name: ${CONFIG_MAP_NAME}
                 items:
                   - key: ${CONFIG_FILE_NAME}
                     path: ${CONFIG_FILE_NAME}
@@ -153,7 +153,7 @@ objects:
                 - name: CADDY_AGENT_ADMIN_PORT
                   value: ${CADDY_AGENT_ADMIN_PORT}
                 - name: AGENT_HOST
-                  value: ${AGENT_HOST} 
+                  value: ${AGENT_HOST}${SUFFIX}
               resources:
                 requests:
                   cpu: ${CPU_REQUEST}
@@ -239,10 +239,6 @@ parameters:
     description: Agent Port
     required: true
     value: "4000"
-  - name: NAMESPACE
-    displayName: The target namespace for the resources.
-    required: true
-    value: a99fd4
   - name: SUFFIX
     displayName: Suffix
     description: A name suffix used for all objects
