@@ -1,25 +1,3 @@
-// The applicatino label
-// This is used to find all of the build configurations associated to the application
-// To work the build configurations must have an "app" label;
-// - For example; app=iiw-book
-def APP_LABEL = 'bc-wallet-demo'
-
-// Wait timeout in minutes
-def WAIT_TIMEOUT = 40
-
-// Assumes Builds, Images, and Deployments all have the same name(s)
-// Components will be deployed in the order they are listed.
-def COMPONENTS = ['bc-wallet-demo-web', 'bc-wallet-demo-server', 'bc-wallet-demo-proxy']
-
-// Edit your environment TAG names below
-def TAG_NAMES = ['dev']
-
-// Edit your deployment environment names below
-def DEP_ENV_NAMES = ['dev']
-
-// The base namespace of you environments.
-def NAME_SPACE = 'a99fd4'
-
 // Get an image's hash tag
 String getImageTagHash(String imageName, String tag = "") {
 
@@ -32,20 +10,21 @@ String getImageTagHash(String imageName, String tag = "") {
 }
 
 node {
+  def config = load "../workspace@script/jenkins/config.groovy"
   stage("Building images ...") {
     script {
       openshift.withCluster() {
         openshift.withProject() {
 
           // Find all of the build configurations associated to the application using labels ...
-          def buildconfigs = openshift.selector("bc", [ app : "${APP_LABEL}" ])
-          echo "Found ${buildconfigs.count()} buildconfigs for app label (app=${APP_LABEL}): ${buildconfigs.names()}"
+          def buildconfigs = openshift.selector("bc", [ app : "${config.APP_LABEL}" ])
+          echo "Found ${buildconfigs.count()} buildconfigs for app label (app=${config.APP_LABEL}): ${buildconfigs.names()}"
 
           // Kick off all the builds in parallel ...
           def builds = buildconfigs.startBuild()
           echo "Started ${builds.count()} builds: ${builds.names()}"
 
-          timeout(WAIT_TIMEOUT) {
+          timeout(config.WAIT_TIMEOUT) {
             // Wait for all the builds to complete ...
             // This section will exit after the last build completes.
             echo "Waiting for builds to complete ..."
@@ -65,23 +44,23 @@ node {
     }
   }
 
-  for(item in COMPONENTS)
+  for(item in config.COMPONENTS)
   {
     stage("Deploying ${item}") {
       script {
         openshift.withCluster() {
           openshift.withProject() {
 
-            echo "Tagging ${item} for deployment to ${TAG_NAMES[0]} ..."
+            echo "Tagging ${item} for deployment to ${config.DEV_ENV} ..."
 
             // Don't tag with BUILD_ID so the pruner can do it's job; it won't delete tagged images.
             // Tag the images for deployment based on the image's hash
             def IMAGE_HASH = getImageTagHash("${item}")
             echo "IMAGE_HASH: ${IMAGE_HASH}"
-            openshift.tag("${item}@${IMAGE_HASH}", "${item}:${TAG_NAMES[0]}")
+            openshift.tag("${item}@${IMAGE_HASH}", "${item}:${config.DEV_ENV}")
           }
 
-          openshift.withProject("${NAME_SPACE}-${DEP_ENV_NAMES[0]}") {
+          openshift.withProject("${config.NAME_SPACE}-${config.DEV_ENV}") {
               def dc = openshift.selector('dc', "${item}")
               // Wait for the deployment to complete.
               // This will wait until the desired replicas are all available
