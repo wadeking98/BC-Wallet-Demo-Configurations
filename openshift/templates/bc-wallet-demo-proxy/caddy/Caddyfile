@@ -5,7 +5,7 @@
 
 :{$CADDY_AGENT_ADMIN_PORT} {
     @pass {
-        path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/*
+        path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/* /qr
     }
 
     # Proxy requests to API service
