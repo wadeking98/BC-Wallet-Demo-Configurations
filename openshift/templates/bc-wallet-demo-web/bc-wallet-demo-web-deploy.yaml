@@ -102,6 +102,8 @@ objects:
               env:
                 - name: REACT_APP_HOST_BACKEND
                   value: ${AGENT_ENDPOINT}
+                - name: REACT_APP_INSIGHTS_PROJECT_ID
+                  value: ${DEMO_TYPE}
                 - name: HOME
                   value: "/root"
               image: " "
@@ -197,6 +199,11 @@ parameters:
     description: The URL for the site
     required: true
     value: https://bc-wallet-demo-agent-admin-dev.apps.silver.devops.gov.bc.ca
+  - name: DEMO_TYPE
+    displayName: Demo Type
+    description: The type of demo to run ("FULL_DEMO"|"") FULL_DEMO means character selection is enabled
+    required: false
+    value: ''
   - name: CPU_REQUEST
     displayName: Resources CPU Request
     description: The resources CPU request (in cores) for this build.
