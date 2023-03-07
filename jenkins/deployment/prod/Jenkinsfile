@@ -1,10 +1,20 @@
 node {
-  def config = load "../workspace@script/jenkins/config.groovy"
+
+  stage("Init") {
+    script {
+      dir(''){
+        checkout scm
+        config = load "jenkins/config.groovy"
+      }
+    }
+  }
+
   def source = config.TEST_ENV
   def destination = config.PROD_ENV
   def namespace = config.NAME_SPACE
   def appSuffix = config.SUFFIX
   def apps = config.COMPONENTS
+
 
   apps.each { appName ->
     stage("Deploying ${appName} to ${destination}") {
