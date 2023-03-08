@@ -10,7 +10,14 @@ String getImageTagHash(String imageName, String tag = "") {
 }
 
 node {
-  def config = load "../workspace@script/jenkins/config.groovy"
+  stage("Init") {
+    script {
+      dir(''){
+        checkout scm
+        config = load "jenkins/config.groovy"
+      }
+    }
+  }
   stage("Building images ...") {
     script {
       openshift.withCluster() {
