@@ -20,10 +20,10 @@ class config {
 
   // Apps - Listed in the order they should be tagged
   // Do not deploy schema-spy into prod
-  public static final String[] COMPONENTS = ['bc-wallet-demo-web', 'bc-wallet-demo-server', 'bc-wallet-demo-proxy']
+  public static final String[] COMPONENTS = ['bc-wallet-demo-web', 'bc-wallet-demo-server']
   
   // Build configuration
-  public static final String[] BUILDS = ['bc-wallet-demo-web', 'bc-wallet-demo-server', 'bc-wallet-demo-proxy']
+  public static final String[] BUILDS = ['bc-wallet-demo-web', 'bc-wallet-demo-server']
   
 }
 

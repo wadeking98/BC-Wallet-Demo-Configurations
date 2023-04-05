@@ -1,39 +1,51 @@
 kind: Template
 apiVersion: template.openshift.io/v1
 metadata:
-  name: ${NAME}-build-template
-  creationTimestamp: null
+  name: ${NAME}
 objects:
   - kind: ImageStream
     apiVersion: v1
     metadata:
       name: ${NAME}
       labels:
-        app: ${APP_NAME}
+        name: ${NAME}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
   - kind: BuildConfig
     apiVersion: v1
     metadata:
       name: ${NAME}
       labels:
-        app: ${APP_NAME}
+        name: ${NAME}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
     spec:
       triggers:
-        - type: ImageChange
         - type: ConfigChange
-      runPolicy: Serial
+      runPolicy: SerialLatestOnly
       source:
         type: Git
         git:
-          uri: ${GIT_REPO_URL}
           ref: ${GIT_REF}
+          uri: ${GIT_REPO_URL}
         contextDir: ${SOURCE_CONTEXT_DIR}
       strategy:
         type: Docker
         dockerStrategy:
-          from:
-            kind: DockerImage
-            name: ${SOURCE_IMAGE}
           dockerfilePath: ${DOCKER_FILE_PATH}
+          # Workaround for multi-stage Dockerfile builds.
+          # The service pulling the images during multi-stage Dockerfile builds appears to be different
+          # than the one(s) used for regular builds.  So the pull secret registration done by
+          # 'initOSProjects.sh' is not effective.  TODO: Figure this out.
+          pullSecret:
+            name: ${PULL_SECRET_NAME}
+          buildArgs:
+            - name: "build_image"
+              value: "${SOURCE_IMAGE_REGISTRY}${BUILD_IMAGE_NAME}"
+            - name: "runtime_image"
+              value: "${SOURCE_IMAGE_REGISTRY}${RUNTIME_IMAGE_NAME}"
       output:
         to:
           kind: ImageStreamTag
@@ -48,44 +60,73 @@ objects:
 parameters:
   - name: NAME
     displayName: Name
-    description: The name assigned to all of the resources defined in this template.
+    description: The name assigned to all of the frontend objects defined in this template.    You should keep this as default unless your know what your doing.
     required: true
     value: bc-wallet-demo-web
+  - name: SUFFIX
+    displayName: Suffix
+    description: A name suffix used for all objects
+    required: false
+    value: 
   - name: APP_NAME
     displayName: App Name
-    description: Used to group components together.
+    description: Used to group components together in the OpenShift console.
+    required: true
+    value: bc-wallet-demo
+  - name: APP_GROUP
+    displayName: App Group
+    description: The name assigned to all of the deployments in this project.
     required: true
     value: bc-wallet-demo
   - name: GIT_REPO_URL
     displayName: Git Repo URL
-    description: The URL to your GIT repo.
+    description: The URL to your GIT repo, don't use the this default unless your just experimenting.
     required: true
-    value: https://github.com/bcgov/BC-Wallet-Demo.git
+    value: https://github.com/bcgov/BC-Wallet-Demo
   - name: GIT_REF
     displayName: Git Reference
     description: The git reference or branch.
-    required: true
+    required: false
     value: main
   - name: SOURCE_CONTEXT_DIR
     displayName: Source Context Directory
     description: The source context directory.
     required: false
-    value: ''
+    value: 
   - name: DOCKER_FILE_PATH
     displayName: Docker File Path
-    description: The path to the docker file defining the build.
-    required: false
-    value: ./DockerfileClient
-  - name: SOURCE_IMAGE
-    displayName: Source Image
-    description: The fully-qualified name of the source image for this component. 
+    description: The path to the docker file.
     required: true
-    value: artifacts.developer.gov.bc.ca/docker-remote/ubuntu:18.04
+    value: DockerfileClient
+  - name: PULL_SECRET_NAME
+    displayName: Pull Secret Name
+    description: The name of the pull secret to use during the build.
+    required: false
+    value: artifactory-creds
+
+  - name: SOURCE_IMAGE_REGISTRY
+    displayName: Source Image Registry
+    description: The name of the Source Image Registry.
+    required: false
+    value: artifacts.developer.gov.bc.ca/docker-remote/
+
+  - name: BUILD_IMAGE_NAME
+    displayName: Build Image Name
+    description: The name of the Docker image to be used for the build stage.
+    required: false
+    value: node:fermium
+  - name: RUNTIME_IMAGE_NAME
+    displayName: Runtime Image Name
+    description: The name of the Docker image to be used for the runtime stage.
+    required: false
+    value: caddy:alpine
+
   - name: OUTPUT_IMAGE_TAG
     displayName: Output Image Tag
     description: The tag given to the built image.
     required: true
     value: latest
+
   - name: CPU_LIMIT
     displayName: Resources CPU Limit
     description: The resources CPU limit (in cores) for this build.
@@ -100,7 +141,7 @@ parameters:
     displayName: Resources CPU Request
     description: The resources CPU request (in cores) for this build.
     required: true
-    value: "500m"
+    value: 500m
   - name: MEMORY_REQUEST
     displayName: Resources Memory Request
     description: The resources Memory request (in Mi, Gi, etc) for this build.
