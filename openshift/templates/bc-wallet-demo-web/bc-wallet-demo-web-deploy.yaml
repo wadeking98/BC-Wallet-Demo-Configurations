@@ -98,6 +98,8 @@ objects:
                   value: ${WEB_HOST_PORT}
                 - name: WEB_HOST_TLS
                   value: ${WEB_HOST_TLS}
+                - name: REACT_APP_HOST_BACKEND
+                  value: ${BACKEND_URL}
                 - name: API_HOST
                   value: ${API_HOST}${SUFFIX}
                 - name: API_PORT
@@ -229,11 +231,6 @@ parameters:
     description: Service Role
     required: true
     value: web
-  - name: API_ROLE
-    displayName: Api Role
-    description: Api Role
-    required: true
-    value: server
   - name: NAMESPACE
     displayName: The target namespace for the resources.
     required: true
@@ -295,6 +292,13 @@ parameters:
     required: true
     value: "5000"
 
+  - name: BACKEND_URL
+    displayName: Backend url
+    description: The url that the frontend should use to send requests to the API
+    required: false
+    value: https://bc-wallet-demo-dev.apps.silver.devops.gov.bc.ca
+
+
   - name: CADDY_CONFIG_FILE_NAME
     displayName: Config File Name
     description: The name of the configuration file.
@@ -329,12 +333,12 @@ parameters:
     displayName: Minimum Replicas
     description: The minimum number of pods to have running.
     required: true
-    value: "1"
+    value: "3"
   - name: MAX_REPLICAS
     displayName: Maximum Replicas
     description: The maximum number of pods to have running.
     required: true
-    value: "3"
+    value: "6"
 
   - name: CPU_REQUEST
     displayName: Resources CPU Request
@@ -355,4 +359,4 @@ parameters:
     displayName: Resources Memory Limit
     description: The resources Memory limit (in Mi, Gi, etc) for this build.
     required: true
-    value: 2Gi
+    value: 250Mi

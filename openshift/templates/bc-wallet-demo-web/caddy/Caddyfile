@@ -35,28 +35,22 @@
 
     # Required for SPA router to work
     @spa_router {
-        not path /api/*
+        not path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/* /revoke /qr
         file {
             try_files {path} /index.html
         }
     }
     rewrite @spa_router {http.matchers.file.relative}
 
-    # Proxy requests to API service
-    route /api/* {
-        reverse_proxy {$API_HOST}:{$API_PORT} {
-            trusted_proxies 0.0.0.0/0
-            header_up Host {upstream_hostport}
-            header_up X-Forwarded-Host {host}
-        }
+    # pass API requests to backend
+    @pass {
+        path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/* /revoke /qr
     }
 
-    # Proxy requests to Hooks
-    route /hooks/* {
-        reverse_proxy {$API_HOST}:{$API_PORT} {
-            trusted_proxies 0.0.0.0/0
-            header_up Host {upstream_hostport}
-            header_up X-Forwarded-Host {host}
-        }
+    # Proxy requests to API service
+    reverse_proxy @pass {$API_HOST}:{$API_PORT} {
+        trusted_proxies 0.0.0.0/0
+        header_up Host {upstream_hostport}
+        header_up X-Forwarded-Host {host}
     }
 }

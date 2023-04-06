@@ -4,31 +4,6 @@ apiVersion: template.openshift.io/v1
 metadata:
   name: ${NAME}${SUFFIX}
 objects:
-  # - kind: NetworkPolicy
-  #   apiVersion: networking.k8s.io/v1
-  #   metadata:
-  #     name: ${NAME}-allow-ingress
-  #     labels:
-  #       name: ${NAME}-allow-ingress
-  #       app: ${APP_NAME}
-  #       app-group: ${APP_GROUP}
-  #       role: ${ROLE}
-  #       env: ${TAG_NAME}
-  #   spec:
-  #     description: |
-  #       Allow traffic from routes into the ${ROLE} container(s).
-  #     ingress:
-  #       - from:
-  #           - namespaceSelector:
-  #               matchLabels:
-  #                 network.openshift.io/policy-group: ingress
-  #     podSelector:
-  #       matchLabels:
-  #         role: ${ROLE}
-  #         app: ${APP_NAME}
-  #         env: ${TAG_NAME}
-  #     policyTypes:
-  #       - Ingress
   - kind: NetworkPolicy
     apiVersion: networking.k8s.io/v1
     metadata:
@@ -43,7 +18,7 @@ objects:
         - from:
             - podSelector:
                 matchLabels:
-                  role: ${PROXY_ROLE}
+                  role: ${WEB_ROLE}
                   app: ${APP_NAME}${SUFFIX}
                   env: ${TAG_NAME}
               namespaceSelector:
@@ -76,28 +51,6 @@ objects:
           targetPort: ${{SERVER_PORT}}
       selector:
         name: ${NAME}${SUFFIX}
-
-  # - kind: Route
-  #   apiVersion: v1
-  #   metadata:
-  #     name: ${NAME}${SUFFIX}
-  #     labels:
-  #       app: ${APP_NAME}${SUFFIX}
-  #       name: ${NAME}${SUFFIX}
-  #       app-group: ${APP_GROUP}
-  #       role: ${ROLE}
-  #       env: ${TAG_NAME}
-  #   spec:
-  #     host: ${ENDPOINT_BASE}
-  #     port:
-  #       targetPort: ${NAME}${SUFFIX}
-  #     tls:
-  #       insecureEdgeTerminationPolicy: Redirect
-  #       termination: edge
-  #     to:
-  #       kind: Service
-  #       name: ${NAME}${SUFFIX}
-  #       weight: 100
   
   - kind: Secret
     apiVersion: v1
@@ -239,11 +192,11 @@ parameters:
     description: The role of this service within the application - used for Network Policies
     required: true
     value: server
-  - name: PROXY_ROLE
+  - name: WEB_ROLE
     displayName: proxy role
     description: The role of the caddy proxy service
     required: true
-    value: proxy
+    value: web
   - name: IMAGE_NAMESPACE
     displayName: Namespace containing application images.
     required: true
