@@ -7,31 +7,6 @@ objects:
   - kind: NetworkPolicy
     apiVersion: networking.k8s.io/v1
     metadata:
-      name: ${NAME}-allow-ingress
-      labels:
-        name: ${NAME}-allow-ingress
-        app: ${APP_NAME}
-        app-group: ${APP_GROUP}
-        role: ${ROLE}
-        env: ${TAG_NAME}
-    spec:
-      description: |
-        Allow traffic from routes into the ${ROLE} container(s).
-      ingress:
-        - from:
-            - namespaceSelector:
-                matchLabels:
-                  network.openshift.io/policy-group: ingress
-      podSelector:
-        matchLabels:
-          role: ${ROLE}
-          app: ${APP_NAME}
-          env: ${TAG_NAME}
-      policyTypes:
-        - Ingress
-  - kind: NetworkPolicy
-    apiVersion: networking.k8s.io/v1
-    metadata:
       name: ${NAME}${SUFFIX}
       labels:
         name: ${NAME}${SUFFIX}
@@ -43,7 +18,7 @@ objects:
         - from:
             - podSelector:
                 matchLabels:
-                  role: ${PROXY_ROLE}
+                  role: ${WEB_ROLE}
                   app: ${APP_NAME}${SUFFIX}
                   env: ${TAG_NAME}
               namespaceSelector:
@@ -70,38 +45,12 @@ objects:
         env: ${TAG_NAME}
     spec:
       ports:
-        - name: ${NAME}${SUFFIX}-admin
+        - name: ${NAME}${SUFFIX}
           port: ${{SERVER_PORT}}
           protocol: TCP
           targetPort: ${{SERVER_PORT}}
-        - name: ${NAME}${SUFFIX}-public
-          port: ${{AGENT_PORT}}
-          protocol: TCP
-          targetPort: ${{AGENT_PORT}}
       selector:
         name: ${NAME}${SUFFIX}
-
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: ${NAME}${SUFFIX}-endpoint
-      labels:
-        app: ${APP_NAME}${SUFFIX}
-        name: ${NAME}${SUFFIX}
-        app-group: ${APP_GROUP}
-        role: ${ROLE}
-        env: ${TAG_NAME}
-    spec:
-      host: ${AGENT_ENDPOINT_BASE}
-      port:
-        targetPort: ${NAME}${SUFFIX}-public
-      tls:
-        insecureEdgeTerminationPolicy: Redirect
-        termination: edge
-      to:
-        kind: Service
-        name: ${NAME}${SUFFIX}
-        weight: 100
   
   - kind: Secret
     apiVersion: v1
@@ -114,8 +63,10 @@ objects:
         role: ${ROLE}
         env: ${TAG_NAME}
     stringData:
-      seed: ${WALLET_SEED}
-      key: ${WALLET_KEY}
+      tenantId: ${TENANT_ID}
+      walletSecret: ${WALLET_SECRET}
+      tractionUrl: ${TRACTION_URL}
+      tractionDid: ${TRACTION_DID}
     type: Opaque
 
   - kind: DeploymentConfig
@@ -147,25 +98,29 @@ objects:
           containers:
             - name: ${NAME}${SUFFIX}
               env:
-                - name: AGENT_WALLET_KEY
+                - name: TENANT_ID
                   valueFrom:
                     secretKeyRef:
                       name: ${NAME}${SUFFIX}
-                      key: key
-                - name: AGENT_PUBLIC_DID_SEED
+                      key: tenantId
+                - name: WALLET_SECRET
                   valueFrom:
                     secretKeyRef:
                       name: ${NAME}${SUFFIX}
-                      key: seed
-                - name: AGENT_ENDPOINT
-                  value: ${AGENT_ENDPOINT}
-                - name: HOME
-                  value: "/root"
+                      key: walletSecret
+                - name: TRACTION_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}${SUFFIX}
+                      key: tractionUrl
+                - name: TRACTION_DID
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}${SUFFIX}
+                      key: tractionDid
               image: " "
               ports:
                 - containerPort: ${{SERVER_PORT}}
-                  protocol: TCP
-                - containerPort: ${{AGENT_PORT}}
                   protocol: TCP
               readinessProbe:
                 timeoutSeconds: 30
@@ -237,11 +192,11 @@ parameters:
     description: The role of this service within the application - used for Network Policies
     required: true
     value: server
-  - name: PROXY_ROLE
+  - name: WEB_ROLE
     displayName: proxy role
     description: The role of the caddy proxy service
     required: true
-    value: proxy
+    value: web
   - name: IMAGE_NAMESPACE
     displayName: Namespace containing application images.
     required: true
@@ -256,33 +211,31 @@ parameters:
     description: The admin port on which the service will listen.
     required: true
     value: "5000"
-  - name: AGENT_PORT
-    displayName: Agent Port
-    description: The agent port on which the service will listen.
-    required: true
-    value: "5001"
-  - name: WALLET_KEY
-    displayName: Wallet Encryption Key
-    description: The encryption key to be used for the wallets.  Needs to be base64 encoded.
-    required: true
-    generate: expression
-    from: "[a-zA-Z0-9]{32}"
-  - name: WALLET_SEED
-    displayName: Indy Wallet Seed
-    description: The Seed used for the indy wallet.  Needs to be base64 encoded.
-    required: true
-    generate: expression
-    from: "[a-zA-Z0-9]{32}"
-  - name: AGENT_ENDPOINT
+  - name: ENDPOINT_BASE
     displayName: Site URL
     description: The URL for the site
     required: true
-    value: https://bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
-  - name: AGENT_ENDPOINT_BASE
+    value: bc-wallet-demo-server-dev.apps.silver.devops.gov.bc.ca
+  - name: TENANT_ID
     displayName: Site URL
     description: The URL for the site
     required: true
-    value: bc-wallet-demo-agent-dev.apps.silver.devops.gov.bc.ca
+    value: ""
+  - name: WALLET_SECRET
+    displayName: Site URL
+    description: The URL for the site
+    required: true
+    value: ""
+  - name: TRACTION_URL
+    displayName: Site URL
+    description: The URL for the site
+    required: true
+    value: ""
+  - name: TRACTION_DID
+    displayName: Site URL
+    description: The URL for the site
+    required: true
+    value: ""
   - name: CPU_REQUEST
     displayName: Resources CPU Request
     description: The resources CPU request (in cores) for this build.

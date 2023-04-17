@@ -1,16 +1,18 @@
----
-kind: Template
 apiVersion: template.openshift.io/v1
+kind: Template
 metadata:
-  name: ${NAME}${SUFFIX}
+  annotations:
+    description: Deployment template for a angular on nginx
+    tags: angular,nginx
+  name: ${NAME}
 objects:
   - kind: NetworkPolicy
     apiVersion: networking.k8s.io/v1
     metadata:
-      name: ${NAME}-allow-ingress
+      name: ${NAME}${SUFFIX}-allow-ingress
       labels:
-        name: ${NAME}-allow-ingress
-        app: ${APP_NAME}
+        name: ${NAME}${SUFFIX}-allow-ingress
+        app: ${APP_NAME}${SUFFIX}
         app-group: ${APP_GROUP}
         role: ${ROLE}
         env: ${TAG_NAME}
@@ -25,118 +27,119 @@ objects:
       podSelector:
         matchLabels:
           role: ${ROLE}
-          app: ${APP_NAME}
+          app: ${APP_NAME}${SUFFIX}
           env: ${TAG_NAME}
       policyTypes:
         - Ingress
 
-  - kind: Service
-    apiVersion: v1
-    metadata:
-      name: ${NAME}${SUFFIX}
-      labels:
-        app: ${APP_NAME}${SUFFIX}
-        name: ${NAME}${SUFFIX}
-        app-group: ${APP_GROUP}
-        role: ${ROLE}
-        env: ${TAG_NAME}
-    spec:
-      ports:
-        - name: ${NAME}${SUFFIX}-public
-          port: ${{WEB_PORT}}
-          protocol: TCP
-          targetPort: ${{WEB_PORT}}
-      selector:
-        name: ${NAME}${SUFFIX}
-
-  - kind: Route
-    apiVersion: v1
-    metadata:
-      name: ${NAME}${SUFFIX}
-      labels:
-        app: ${APP_NAME}${SUFFIX}
-        name: ${NAME}${SUFFIX}
-        app-group: ${APP_GROUP}
-        role: ${ROLE}
-        env: ${TAG_NAME}
-    spec:
-      host: ${APPLICATION_DOMAIN}
-      port:
-        targetPort: ${NAME}${SUFFIX}-public
-      tls:
-        insecureEdgeTerminationPolicy: Redirect
-        termination: edge
-      to:
-        kind: Service
-        name: ${NAME}${SUFFIX}
-        weight: 100
-
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
-      name: ${NAME}${SUFFIX}
+      creationTimestamp: null
       labels:
-        app: ${APP_NAME}${SUFFIX}
         name: ${NAME}${SUFFIX}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
         app-group: ${APP_GROUP}
         role: ${ROLE}
         env: ${TAG_NAME}
+      name: ${NAME}${SUFFIX}
+      annotations:
+        description: Defines how to deploy the application server
+        app.openshift.io/connects-to: >-
+          [{"apiVersion":"apps.openshift.io/v1","kind":"DeploymentConfig","name":"${API_HOST}${SUFFIX}"}]
     spec:
-      replicas: 1
+      replicas: 2
       selector:
         name: ${NAME}${SUFFIX}
+        deploymentconfig: ${NAME}${SUFFIX}
       strategy:
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
         type: Rolling
       template:
         metadata:
-          name: ${NAME}${SUFFIX}
+          creationTimestamp: null
           labels:
-            app: ${APP_NAME}${SUFFIX}
             name: ${NAME}${SUFFIX}
+            app: ${APP_NAME}${SUFFIX}
+            app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
             app-group: ${APP_GROUP}
             role: ${ROLE}
             env: ${TAG_NAME}
+            deploymentconfig: ${NAME}${SUFFIX}
         spec:
+          volumes:
+            - name: ${NAME}${SUFFIX}-caddy-config-volume
+              configMap:
+                name: ${NAME}-${CADDY_CONFIG_MAP_NAME}${SUFFIX}
+                items:
+                  - key: ${CADDY_CONFIG_FILE_NAME}
+                    path: ${CADDY_CONFIG_FILE_NAME}
           containers:
-            - name: ${NAME}${SUFFIX}
-              env:
-                - name: REACT_APP_HOST_BACKEND
-                  value: ${AGENT_ENDPOINT}
-                - name: REACT_APP_INSIGHTS_PROJECT_ID
-                  value: ${DEMO_TYPE}
-                - name: HOME
-                  value: "/root"
-              image: " "
+            - image: ${NAME}${SUFFIX}
+              imagePullPolicy: Always
+              name: ${NAME}${SUFFIX}
               ports:
-                - containerPort: ${{WEB_PORT}}
+                - containerPort: ${{PROXY_HOST_PORT}}
                   protocol: TCP
-              readinessProbe:
-                timeoutSeconds: 30
-                initialDelaySeconds: 3
-                httpGet:
-                  path: "/"
-                  port: ${{WEB_PORT}}
-              livenessProbe:
-                timeoutSeconds: 30
-                initialDelaySeconds: 300
-                httpGet:
-                  path: "/"
-                  port: ${{WEB_PORT}}
-              imagePullPolicy: IfNotPresent
+              env:
+                - name: PROXY_HOST_PORT
+                  value: ${PROXY_HOST_PORT}
+                - name: PROXY_HOST_NAME
+                  value: ${PROXY_HOST_NAME}
+                - name: WEB_HOST_NAME
+                  value: ${WEB_HOST_NAME}
+                - name: WEB_HOST_PORT
+                  value: ${WEB_HOST_PORT}
+                - name: WEB_HOST_TLS
+                  value: ${WEB_HOST_TLS}
+                - name: REACT_APP_HOST_BACKEND
+                  value: ${BACKEND_URL}
+                - name: API_HOST
+                  value: ${API_HOST}${SUFFIX}
+                - name: API_PORT
+                  value: ${API_PORT}
               resources:
-                limits:
-                  cpu: ${CPU_LIMIT}
-                  memory: ${MEMORY_LIMIT}
                 requests:
                   cpu: ${CPU_REQUEST}
                   memory: ${MEMORY_REQUEST}
-              terminationMessagePath: /dev/termination-log
-              terminationMessagePolicy: File
+                limits:
+                  cpu: ${CPU_LIMIT}
+                  memory: ${MEMORY_LIMIT}
+              volumeMounts:
+                - name: ${NAME}${SUFFIX}-caddy-config-volume
+                  mountPath: ${CADDY_CONFIG_MOUNT_PATH}${CADDY_CONFIG_FILE_NAME}
+                  subPath: ${CADDY_CONFIG_FILE_NAME}
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: ${{PROXY_HOST_PORT}}
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                timeoutSeconds: 60
+                periodSeconds: 10
+                successThreshold: 1
+                failureThreshold: 3
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: ${{PROXY_HOST_PORT}}
+                  scheme: HTTP
+                initialDelaySeconds: 10
+                timeoutSeconds: 60
+                periodSeconds: 10
+                successThreshold: 1
+                failureThreshold: 3
           dnsPolicy: ClusterFirst
           restartPolicy: Always
-          schedulerName: default-scheduler
           securityContext: {}
           terminationGracePeriodSeconds: 30
+      test: false
       triggers:
         - type: ConfigChange
         - type: ImageChange
@@ -146,81 +149,214 @@ objects:
               - ${NAME}${SUFFIX}
             from:
               kind: ImageStreamTag
-              name: ${NAME}:${TAG_NAME}
               namespace: ${IMAGE_NAMESPACE}
+              name: ${NAME}:${TAG_NAME}
+
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: ${NAME}${SUFFIX}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+      name: ${NAME}${SUFFIX}
+    spec:
+      ports:
+        - name: proxy-tcp
+          port: ${{PROXY_HOST_PORT}}
+          protocol: TCP
+          targetPort: ${{PROXY_HOST_PORT}}
+      selector:
+        name: ${NAME}${SUFFIX}
+        deploymentconfig: ${NAME}${SUFFIX}
+      sessionAffinity: None
+      type: ClusterIP
+
+  - kind: Route
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        name: ${NAME}${SUFFIX}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+      annotations:
+        haproxy.router.openshift.io/timeout: ${ROUTE_TIMEOUT}
+    spec:
+      host: ${APPLICATION_DOMAIN}
+      port:
+        targetPort: proxy-tcp
+      tls:
+        insecureEdgeTerminationPolicy: Redirect
+        termination: edge
+      to:
+        kind: Service
+        name: ${NAME}${SUFFIX}
+        weight: 100
+
+  - kind: HorizontalPodAutoscaler
+    apiVersion: autoscaling/v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        name: ${NAME}${SUFFIX}
+        app: ${APP_NAME}${SUFFIX}
+        app.kubernetes.io/part-of: ${APP_NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    spec:
+      scaleTargetRef:
+        apiVersion: apps.openshift.io/v1
+        kind: DeploymentConfig
+        name: ${NAME}${SUFFIX}
+      minReplicas: ${{MIN_REPLICAS}}
+      maxReplicas: ${{MAX_REPLICAS}}
 
 parameters:
-  - name: NAME
+  - description: The name assigned to all of the openshift objects defined in this template. It is also the name of runtime image you want.
     displayName: Name
-    description: The name assigned to all the objects defined in this template.
+    name: NAME
     required: true
     value: bc-wallet-demo-web
-  - name: APP_GROUP
-    displayName: App Group
-    description: The name assigned to all of the deployments in this project.
+  - name: ROLE
+    displayName: Role
+    description: Service Role
     required: true
-    value: bc-wallet-demo
+    value: web
+  - name: NAMESPACE
+    displayName: The target namespace for the resources.
+    required: true
+    value: a99fd4
+  - name: SUFFIX
+    displayName: Suffix
+    description: A name suffix used for all objects
+    required: false
+    value: 
   - name: APP_NAME
     displayName: App Name
     description: Used to group components together in the OpenShift console.
     required: true
     value: bc-wallet-demo
-  - name: SUFFIX
-    displayName: Suffix
-    description: A name suffix used for all objects
-    required: false
-    value: ''
-  - name: ROLE
-    displayName: Role
-    description: The role of this service within the application - used for Network Policies
+  - name: APP_GROUP
+    displayName: App Group
+    description: The name assigned to all of the deployments in this project.
     required: true
-    value: web
-  - name: IMAGE_NAMESPACE
-    displayName: Namespace containing application images.
+    value: bc-wallet-demo
+  - description: The namespace where to get the above image name
+    displayName: Image Namespace
+    name: IMAGE_NAMESPACE
     required: true
     value: a99fd4-tools
-  - name: TAG_NAME
-    displayName: Environment TAG name
-    description: The TAG name for this environment, e.g., dev, test, prod.
+
+  - name: PROXY_HOST_NAME
+    displayName: Proxy Host Port
+    description: The port that the caddy proxy listens on
+    required: false
+    value: 
+  - name: PROXY_HOST_PORT
+    displayName: Proxy Host Port
+    description: The port that the caddy proxy listens on
     required: true
-    value: dev
-  - name: WEB_PORT
-    displayName: Admin Port
-    description: The admin port on which the service will listen.
+    value: "8080"
+  - name: WEB_HOST_NAME
+    displayName: Web HOST
+    description: The hostname of the web service.
+    required: false
+    value: 
+  - name: WEB_HOST_PORT
+    displayName: Web Host Port
+    description: The port number on which the web service is listening.
     required: true
     value: "3000"
-  - name: APPLICATION_DOMAIN
-    displayName: Site URL
-    description: The URL for the site
+  - name: WEB_HOST_TLS
+    displayName: Web Host TLS
+    description: The TLS setting ('on', or 'off') for the web service.
     required: true
-    value: bc-wallet-demo-dev.apps.silver.devops.gov.bc.ca
-  - name: AGENT_ENDPOINT
-    displayName: Site URL
-    description: The URL for the site
+    value: "off"
+  - name: API_HOST
+    displayName: API HOST
+    description: The hostname of the api service.
     required: true
-    value: https://bc-wallet-demo-agent-admin-dev.apps.silver.devops.gov.bc.ca
-  - name: DEMO_TYPE
-    displayName: Demo Type
-    description: The type of demo to run ("FULL_DEMO"|"") FULL_DEMO means character selection is enabled
+    value: bc-wallet-demo-server
+  - name: API_PORT
+    displayName: API Port
+    description: The port number on which the api is listening.
+    required: true
+    value: "5000"
+
+  - name: BACKEND_URL
+    displayName: Backend url
+    description: The url that the frontend should use to send requests to the API
     required: false
-    value: ''
+    value: https://bc-wallet-demo-dev.apps.silver.devops.gov.bc.ca
+
+
+  - name: CADDY_CONFIG_FILE_NAME
+    displayName: Config File Name
+    description: The name of the configuration file.
+    required: true
+    value: Caddyfile
+  - name: CADDY_CONFIG_MAP_NAME
+    displayName: Config Map Name
+    description: The name of the configuration map.
+    required: true
+    value: caddy-conf
+  - name: CADDY_CONFIG_MOUNT_PATH
+    displayName: Config Mount Path
+    description: The path to use to mount the config file.
+    required: true
+    value: /etc/caddy/
+
+  - name: APPLICATION_DOMAIN
+    displayName: Application Hostname
+    description: The exposed hostname that will route to the service, e.g., myappname.apps.silver.devops.gov.bc.ca, if left blank a value will be defaulted.
+    value: bc-wallet-demo-dev.apps.silver.devops.gov.bc.ca
+  - name: ROUTE_TIMEOUT
+    displayName: Route Timeout
+    description: The timeout for the application route.  When this timeout is exceeded the application's route will respond with a 504 Gateway Timeout error.
+    required: true
+    value: 120s
+  - description: The TAG name for this environment, e.g., dev, test, prod
+    displayName: Env TAG name
+    name: TAG_NAME
+    value: dev
+
+  - name: MIN_REPLICAS
+    displayName: Minimum Replicas
+    description: The minimum number of pods to have running.
+    required: true
+    value: "3"
+  - name: MAX_REPLICAS
+    displayName: Maximum Replicas
+    description: The maximum number of pods to have running.
+    required: true
+    value: "6"
+
   - name: CPU_REQUEST
     displayName: Resources CPU Request
     description: The resources CPU request (in cores) for this build.
     required: true
-    value: 250m
+    value: 10m
   - name: CPU_LIMIT
     displayName: Resources CPU Limit
     description: The resources CPU limit (in cores) for this build.
     required: true
-    value: "2"
+    value: 250m
   - name: MEMORY_REQUEST
     displayName: Resources Memory Request
     description: The resources Memory request (in Mi, Gi, etc) for this build.
     required: true
-    value: 1Gi
+    value: 100Mi
   - name: MEMORY_LIMIT
     displayName: Resources Memory Limit
     description: The resources Memory limit (in Mi, Gi, etc) for this build.
     required: true
-    value: 3Gi
+    value: 250Mi
