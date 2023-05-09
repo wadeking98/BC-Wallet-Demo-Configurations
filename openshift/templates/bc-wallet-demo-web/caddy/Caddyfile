@@ -35,7 +35,7 @@
 
     # Required for SPA router to work
     @spa_router {
-        not path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/* /revoke /qr
+        not path /demo/* /server/* /public/* /agent/* /qr
         file {
             try_files {path} /index.html
         }
@@ -44,7 +44,7 @@
 
     # pass API requests to backend
     @pass {
-        path /connections/* /demo/* /server/last-reset /credentials/* /proofs/* /public/* /revoke /qr
+        path /demo/* /server/* /public/* /agent/* /qr
     }
 
     # Proxy requests to API service
