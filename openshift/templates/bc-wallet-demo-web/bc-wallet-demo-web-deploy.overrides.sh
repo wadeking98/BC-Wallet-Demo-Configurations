@@ -19,5 +19,14 @@ OUTPUT_FILE=${CONFIG_MAP_NAME}-configmap_DeploymentConfig.json
 printStatusMsg "Generating ConfigMap; ${CONFIG_MAP_NAME} ..."
 generateConfigMap "${CONFIG_MAP_NAME}${SUFFIX}" "${SOURCE_FILE}" "${OUTPUT_FORMAT}" "${OUTPUT_FILE}"
 
-unset SPECIALDEPLOYPARMS
+if createOperation; then
+  # Ask the user to supply the sensitive parameters ...
+  readParameter "SNOWPLOW_ENDPOINT - Please provide the endpoint for snowplow analytics" SNOWPLOW_ENDPOINT "" "false"
+else
+  # Secrets are removed from the configurations during update operations ...
+  printStatusMsg "Update operation detected ...\nSkipping the prompts for WALLET_SEED secret... \n"
+  writeParameter "SNOWPLOW_ENDPOINT" "prompt_skipped" "false"
+fi
+
+SPECIALDEPLOYPARMS="--param-file=${_overrideParamFile}"
 echo ${SPECIALDEPLOYPARMS}
