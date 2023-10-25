@@ -32,6 +32,20 @@ objects:
       policyTypes:
         - Ingress
 
+  - kind: Secret
+    apiVersion: v1
+    metadata:
+      name: ${NAME}${SUFFIX}
+      labels:
+        app: ${APP_NAME}${SUFFIX}
+        name: ${NAME}${SUFFIX}
+        app-group: ${APP_GROUP}
+        role: ${ROLE}
+        env: ${TAG_NAME}
+    stringData:
+      snowplowEndpoint: ${SNOWPLOW_ENDPOINT}
+    type: Opaque
+
   - kind: DeploymentConfig
     apiVersion: v1
     metadata:
@@ -88,6 +102,11 @@ objects:
                 - containerPort: ${{PROXY_HOST_PORT}}
                   protocol: TCP
               env:
+                - name: SNOWPLOW_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}${SUFFIX}
+                      key: snowplowEndpoint
                 - name: PROXY_HOST_PORT
                   value: ${PROXY_HOST_PORT}
                 - name: PROXY_HOST_NAME
@@ -328,6 +347,12 @@ parameters:
     displayName: Env TAG name
     name: TAG_NAME
     value: dev
+
+  - name: SNOWPLOW_ENDPOINT
+    displayName: snowplow endpoint
+    description: endpoint for snowplow analytics
+    required: true
+    value: ""
 
   - name: MIN_REPLICAS
     displayName: Minimum Replicas
