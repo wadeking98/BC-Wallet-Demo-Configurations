@@ -102,7 +102,7 @@ objects:
                 - containerPort: ${{PROXY_HOST_PORT}}
                   protocol: TCP
               env:
-                - name: SNOWPLOW_ENDPOINT
+                - name: REACT_APP_SNOWPLOW_ENDPOINT
                   valueFrom:
                     secretKeyRef:
                       name: ${NAME}${SUFFIX}
